@@ -199,25 +199,24 @@ export default function CampaignChat() {
 
   // Check if a message is from the current user
   const isOwnMessage = (message) => {
-    console.log('Message:', message, user);
-    return message.user_id?._id === user?._id;
+    return message.user_id === user?.id;
   };
 
   // Find user's name from campaign members
   const getUserName = (userId) => {
-    console.log('Campaign:', campaign.members);
     if (!campaign || !campaign.members) return 'Unknown User';
-    const member = campaign.members.find((m) => m.user_id?._id === userId);
-    return member ? member.name : 'Unknown User';
+    const member = campaign.members.find((m) => m.user._id === userId);
+    // console.log('Member:', userId, member);
+    return member ? member.user.name : 'Unknown User';
   };
 
-  // if (loading) {
-  //   return (
-  //     <Box className='h-full p-4 justify-center items-center'>
-  //       <Text>Loading chat...</Text>
-  //     </Box>
-  //   );
-  // }
+  if (loading) {
+    return (
+      <Box className='h-full p-4 justify-center items-center'>
+        <Text>Loading chat...</Text>
+      </Box>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -252,6 +251,7 @@ export default function CampaignChat() {
                   isOwnMessage(message) ? 'self-end ml-auto' : 'self-start'
                 }`}
               >
+                {console.log('Message:', message.text, message.user_id)}
                 <HStack
                   className={`items-end mb-1 ${
                     isOwnMessage(message) ? 'justify-end' : 'justify-start'
@@ -282,7 +282,6 @@ export default function CampaignChat() {
                         isOwnMessage(message) ? 'text-white' : 'text-slate-800'
                       }
                     >
-                      hi
                       {message.text}
                     </Text>
                   </Box>
