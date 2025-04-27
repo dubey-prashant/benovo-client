@@ -2,22 +2,18 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import {
   Box,
-  Button,
-  ButtonText,
   Text,
-  Heading,
-  VStack,
   HStack,
-  Divider,
   Icon,
   ChatIcon,
-  SendIcon,
   Input,
   InputField,
   InputSlot,
   InputIcon,
   Pressable,
 } from '@gluestack-ui/themed';
+// Import Ionicons from Expo vector icons
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, usePathname } from 'expo-router';
 import { CampaignService } from '@/services/campaign-service';
 import { useAuth } from '../../../../context/AuthContext';
@@ -38,6 +34,7 @@ export default function CampaignChat() {
   const [sendingMessage, setSendingMessage] = useState(false);
   const scrollViewRef = useRef(null);
   const socketRef = useRef(null);
+  const inputRef = useRef(null); // Add ref for the input field
   const { user } = useAuth();
 
   // Format date to a readable format
@@ -80,6 +77,7 @@ export default function CampaignChat() {
         // Subscribe to messages
         const unsubscribe = SocketService.subscribeToCampaignMessages(
           (message) => {
+            console.log('New message received:', message);
             setMessages((prevMessages) => {
               // Use _id for MongoDB documents or create a composite key
               const messageId =
@@ -169,16 +167,18 @@ export default function CampaignChat() {
         timestamp: new Date().toISOString(),
       };
 
-      // 1. Save message to database first to get a message ID
-      const result = await ChatService.sendMessage(messageData);
-
-      if (result.message) {
-        // 2. Send through socket with the ID for real-time updates
-        SocketService.sendCampaignMessage(campaignId, result.message);
-      }
+      // Save message to database first to get a message ID
+      await ChatService.sendMessage(messageData);
 
       // Clear input
       setNewMessage('');
+
+      // Focus on the input field after sending
+      if (inputRef.current) {
+        setTimeout(() => {
+          inputRef.current.focus();
+        }, 100);
+      }
     } catch (error) {
       console.error('Error sending message:', error);
     } finally {
@@ -244,58 +244,63 @@ export default function CampaignChat() {
             className='flex-1 pt-4 px-4'
             contentContainerStyle={{ paddingBottom: 20 }}
           >
-            {messages.map((message, index) => (
-              <Box
-                key={message._id || index}
-                className={`mb-4 max-w-[85%] ${
-                  isOwnMessage(message) ? 'self-end ml-auto' : 'self-start'
-                }`}
-              >
-                {console.log('Message:', message.text, message.user_id)}
-                <HStack
-                  className={`items-end mb-1 ${
-                    isOwnMessage(message) ? 'justify-end' : 'justify-start'
+            {messages.map((message, index) => {
+              return (
+                <Box
+                  key={message._id || index}
+                  className={`mb-4 max-w-[85%] ${
+                    isOwnMessage(message) ? 'self-end ml-auto' : 'self-start'
                   }`}
                 >
-                  {!isOwnMessage(message) && (
-                    <Box className='w-8 h-8 rounded-full bg-blue-100 items-center justify-center mr-2'>
-                      <Text className='text-blue-600 font-semibold'>
-                        {getInitials(getUserName(message.user_id))}
-                      </Text>
-                    </Box>
-                  )}
-
-                  <Box
-                    className={`p-3 rounded-xl ${
-                      isOwnMessage(message)
-                        ? 'bg-blue-600 rounded-br-none'
-                        : 'bg-white border border-slate-200 rounded-bl-none'
+                  <HStack
+                    className={`items-end mb-1 ${
+                      isOwnMessage(message) ? 'justify-end' : 'justify-start'
                     }`}
                   >
                     {!isOwnMessage(message) && (
-                      <Text className='text-xs text-slate-600 font-medium mb-1'>
-                        {getUserName(message.user_id)}
-                      </Text>
+                      <Box className='w-8 h-8 rounded-full bg-blue-100 items-center justify-center mr-2'>
+                        <Text className='text-blue-600 font-semibold'>
+                          {getInitials(getUserName(message.user_id))}
+                        </Text>
+                      </Box>
                     )}
-                    <Text
-                      className={
-                        isOwnMessage(message) ? 'text-white' : 'text-slate-800'
-                      }
-                    >
-                      {message.text}
-                    </Text>
-                  </Box>
-                </HStack>
 
-                <Text
-                  className={`text-xs text-slate-500 ${
-                    isOwnMessage(message) ? 'text-right mr-1' : 'ml-10'
-                  }`}
-                >
-                  {formatMessageTime(message.timestamp)}
-                </Text>
-              </Box>
-            ))}
+                    <Box
+                      className={`p-3 rounded-xl ${
+                        isOwnMessage(message)
+                          ? 'bg-blue-600 rounded-br-none'
+                          : 'bg-white border border-slate-200 rounded-bl-none'
+                      }`}
+                    >
+                      {!isOwnMessage(message) && (
+                        <Text
+                          fontSize={14}
+                          fontWeight='bold'
+                          color='$blue600'
+                          className='mb-1'
+                        >
+                          {getUserName(message.user_id)}
+                        </Text>
+                      )}
+                      <Text
+                        color={isOwnMessage(message) ? 'white' : '$slate800'}
+                      >
+                        {message.text}
+                      </Text>
+                    </Box>
+                  </HStack>
+
+                  <Text
+                    fontSize={12}
+                    className={`text-slate-500 ${
+                      isOwnMessage(message) ? 'text-right mr-1' : 'ml-10'
+                    }`}
+                  >
+                    {formatMessageTime(message.timestamp)}
+                  </Text>
+                </Box>
+              );
+            })}
           </ScrollView>
         )}
 
@@ -306,6 +311,7 @@ export default function CampaignChat() {
             size='md'
           >
             <InputField
+              ref={inputRef}
               placeholder='Type a message...'
               value={newMessage}
               onChangeText={setNewMessage}
@@ -321,11 +327,10 @@ export default function CampaignChat() {
                   !newMessage.trim() ? 'bg-slate-200' : 'bg-blue-600'
                 }`}
               >
-                <InputIcon
-                  as={SendIcon}
-                  className={
-                    !newMessage.trim() ? 'text-slate-400' : 'text-white'
-                  }
+                <Ionicons
+                  name='send'
+                  size={12}
+                  color={!newMessage.trim() ? '#94a3b8' : '#ffffff'}
                 />
               </Pressable>
             </InputSlot>

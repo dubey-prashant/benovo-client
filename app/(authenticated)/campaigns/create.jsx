@@ -100,7 +100,7 @@ export default function CreateCampaign() {
       const campaign = await CampaignService.createCampaign(newCampaign);
 
       // Update the router path to include the authenticated group
-      router.push(`/(authenticated)/campaigns/${campaign.id}`);
+      router.push(`/campaigns/${campaign._id}`);
     } catch (error) {
       console.error('Error creating campaign:', error);
       if (error.code === '23505') {

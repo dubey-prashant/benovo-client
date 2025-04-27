@@ -14,19 +14,21 @@ import {
   BadgeText,
   Pressable,
   Icon,
-  Progress,
-  ProgressFilledTrack,
   CalendarDaysIcon,
   UsersIcon,
   DollarIcon,
-  ClockIcon,
 } from '@gluestack-ui/themed';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, usePathname, useRouter } from 'expo-router';
 import { CampaignService } from '@/services/campaign-service';
 import { useAuth } from '../../../../context/AuthContext';
 
 export default function CampaignDetails() {
   const { id } = useLocalSearchParams();
+  const pathname = usePathname();
+
+  // Extract ID from pathname as fallback
+  const campaignId = id || pathname.split('/')[2];
+
   const router = useRouter();
   const [campaign, setCampaign] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -34,12 +36,11 @@ export default function CampaignDetails() {
 
   useEffect(() => {
     const fetchCampaign = async () => {
-      if (!id) return;
+      if (!campaignId) return;
 
       try {
-        const data = await CampaignService.getCampaign(id);
+        const data = await CampaignService.getCampaign(campaignId);
         if (data) {
-          console.log('Campaign data:', data);
           setCampaign(data);
         } else {
           // Campaign not found, redirect to campaigns list
@@ -53,7 +54,7 @@ export default function CampaignDetails() {
     };
 
     fetchCampaign();
-  }, [id]);
+  }, [campaignId]);
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
@@ -69,13 +70,6 @@ export default function CampaignDetails() {
       month: 'short',
       day: 'numeric',
     });
-  };
-
-  // Check if user is admin
-  const isAdmin = () => {
-    if (!campaign || !user) return false;
-    const member = campaign?.members?.find((m) => m.user_id === user._id);
-    return member?.isAdmin || false;
   };
 
   // Calculate campaign progress
@@ -149,7 +143,7 @@ export default function CampaignDetails() {
           </Text>
 
           {/* Progress Bar */}
-          <Box className='mb-4'>
+          {/* <Box className='mb-4'>
             <Box className='flex-row justify-between items-center mb-2'>
               <Text className='text-slate-700 font-medium'>
                 Campaign Progress
@@ -178,11 +172,11 @@ export default function CampaignDetails() {
                 Goal: {formatCurrency(campaign.target_amount)}
               </Text>
             </Box>
-          </Box>
+          </Box> */}
         </Box>
 
         {/* Quick Stats */}
-        <Box className='flex-row mb-6 justify-between'>
+        {/* <Box className='flex-row mb-6 justify-between'>
           <Box className='flex-1 bg-white rounded-xl shadow-sm p-3 mr-2 items-center justify-center'>
             <Icon as={UsersIcon} size='md' className='text-blue-600 mb-1' />
             <Text className='text-lg font-bold text-slate-800'>
@@ -204,30 +198,9 @@ export default function CampaignDetails() {
             </Text>
             <Text className='text-xs text-slate-500'>Frequency</Text>
           </Box>
-        </Box>
+        </Box> */}
 
         {/* Action Buttons */}
-        {isAdmin() && (
-          <Box className='mb-6'>
-            <HStack space='md'>
-              <Button
-                className='flex-1 bg-blue-600 rounded-lg'
-                onPress={() => router.push(`/campaigns/${id}/members/add`)}
-              >
-                <ButtonText className='font-medium'>Invite Members</ButtonText>
-              </Button>
-
-              <Button
-                className='flex-1 border border-blue-300 rounded-lg bg-transparent'
-                onPress={() => router.push(`/campaigns/${id}/manage`)}
-              >
-                <ButtonText className='text-blue-600 font-medium'>
-                  Manage
-                </ButtonText>
-              </Button>
-            </HStack>
-          </Box>
-        )}
 
         {/* Campaign Details Card */}
         <Box className='bg-white rounded-xl p-5 shadow-sm mb-6'>
@@ -312,14 +285,14 @@ export default function CampaignDetails() {
                   <Box className='flex-row items-center'>
                     <Box className='w-8 h-8 rounded-full bg-blue-100 items-center justify-center mr-3'>
                       <Text className='text-blue-600 font-semibold'>
-                        {(member.name || 'User').charAt(0).toUpperCase()}
+                        {(member.user.name || 'User').charAt(0).toUpperCase()}
                       </Text>
                     </Box>
                     <Text className='text-slate-700 font-medium'>
-                      {member.name || `Member ${index + 1}`}
+                      {member.user.name || `Member ${index + 1}`}
                     </Text>
                   </Box>
-                  {member.isAdmin && (
+                  {member.is_admin && (
                     <Badge className='bg-blue-50 border border-blue-100'>
                       <BadgeText className='text-blue-600 text-xs'>
                         Admin
@@ -338,80 +311,10 @@ export default function CampaignDetails() {
           {campaign.members?.length > 5 && (
             <Pressable
               className='mt-3 items-center py-2 bg-slate-50 rounded-lg'
-              onPress={() => router.push(`/campaigns/${id}/members`)}
+              onPress={() => router.push(`/campaigns/${campaignId}/members`)}
             >
               <Text className='text-blue-600 font-medium'>
                 View All Members
-              </Text>
-            </Pressable>
-          )}
-        </Box>
-
-        {/* Recent Contributions */}
-        <Box className='bg-white rounded-xl p-5 shadow-sm mb-6'>
-          <Heading
-            size='sm'
-            className='mb-3 text-slate-800 flex-row items-center'
-          >
-            <Icon as={DollarIcon} size='sm' className='text-slate-700 mr-2' />
-            <Text>Recent Contributions</Text>
-          </Heading>
-          <Divider className='bg-slate-100 mb-4' />
-
-          {campaign.contributions?.length > 0 ? (
-            <VStack space='xs' divider={<Divider className='bg-slate-100' />}>
-              {campaign.contributions.slice(0, 5).map((contribution, index) => (
-                <Box
-                  key={contribution.id || index}
-                  className='flex-row justify-between py-3 items-center'
-                >
-                  <Box className='flex-row items-center'>
-                    <Box className='w-8 h-8 rounded-full bg-green-100 items-center justify-center mr-3'>
-                      <Text className='text-green-600 font-semibold'>
-                        {(contribution.member?.name || 'User')
-                          .charAt(0)
-                          .toUpperCase()}
-                      </Text>
-                    </Box>
-                    <Box>
-                      <Text className='text-slate-700 font-medium'>
-                        {contribution.member?.name || 'Unknown'}
-                      </Text>
-                      <Text className='text-xs text-slate-500'>
-                        {new Date(contribution.date).toLocaleDateString()}
-                      </Text>
-                    </Box>
-                  </Box>
-                  <Text className='font-semibold text-green-600'>
-                    {formatCurrency(contribution.amount)}
-                  </Text>
-                </Box>
-              ))}
-            </VStack>
-          ) : (
-            <Box className='py-8 items-center'>
-              <Text className='text-slate-500 text-center'>
-                No contributions yet
-              </Text>
-              {isAdmin() && (
-                <Button
-                  className='mt-4 bg-green-600 rounded-lg'
-                  size='sm'
-                  onPress={() => router.push(`/campaigns/${id}/contribute`)}
-                >
-                  <ButtonText>Add First Contribution</ButtonText>
-                </Button>
-              )}
-            </Box>
-          )}
-
-          {campaign.contributions?.length > 5 && (
-            <Pressable
-              className='mt-3 items-center py-2 bg-slate-50 rounded-lg'
-              onPress={() => router.push(`/campaigns/${id}/contributions`)}
-            >
-              <Text className='text-blue-600 font-medium'>
-                View All Contributions
               </Text>
             </Pressable>
           )}

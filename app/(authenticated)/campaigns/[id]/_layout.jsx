@@ -1,18 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { Tabs } from 'expo-router';
-import { Icon, InfoIcon, ChatIcon, UsersIcon } from '@gluestack-ui/themed';
+import { Tabs, usePathname } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { CampaignService } from '@/services/campaign-service';
 import { useLocalSearchParams } from 'expo-router';
 
 export default function CampaignTabLayout() {
   const { id } = useLocalSearchParams();
+  const pathname = usePathname();
+
+  // Extract ID from pathname as fallback
+  const campaignId = id || pathname.split('/')[2];
+
   const [campaign, setCampaign] = useState(null);
 
   useEffect(() => {
     const fetchCampaign = async () => {
-      if (!id) return;
+      if (!campaignId) return;
       try {
-        const data = await CampaignService.getCampaign(id);
+        const data = await CampaignService.getCampaign(campaignId);
         if (data) {
           setCampaign(data);
         }
@@ -22,7 +27,7 @@ export default function CampaignTabLayout() {
     };
 
     fetchCampaign();
-  }, [id]);
+  }, [campaignId]);
 
   return (
     <Tabs
@@ -39,18 +44,19 @@ export default function CampaignTabLayout() {
           fontSize: 12,
           fontWeight: '500',
         },
-        headerTitle: campaign?.name || 'Campaign Details',
-        headerTitleStyle: {
-          fontWeight: 'bold',
-        },
+        headerShown: false,
       }}
     >
       <Tabs.Screen
         name='index'
         options={{
           title: 'Details',
-          tabBarIcon: ({ color }) => (
-            <Icon as={InfoIcon} size='sm' color={color} />
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons
+              name='information-circle-outline'
+              size={size || 22}
+              color={color}
+            />
           ),
         }}
       />
@@ -58,8 +64,12 @@ export default function CampaignTabLayout() {
         name='chat'
         options={{
           title: 'Chat',
-          tabBarIcon: ({ color }) => (
-            <Icon as={ChatIcon} size='sm' color={color} />
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons
+              name='chatbubble-outline'
+              size={size || 22}
+              color={color}
+            />
           ),
         }}
       />
@@ -67,8 +77,8 @@ export default function CampaignTabLayout() {
         name='members'
         options={{
           title: 'Members',
-          tabBarIcon: ({ color }) => (
-            <Icon as={UsersIcon} size='sm' color={color} />
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name='people-outline' size={size || 22} color={color} />
           ),
         }}
       />

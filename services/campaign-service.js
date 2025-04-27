@@ -186,4 +186,77 @@ export const CampaignService = {
       throw error;
     }
   },
+
+  // Get user's pending invitations
+  getUserInvitations: async () => {
+    try {
+      const api = await getApiInstance();
+      const response = await api.get('/api/campaigns/invitations');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching user invitations:', error);
+      throw error;
+    }
+  },
+
+  // Respond to an invitation (accept or decline)
+  respondToInvitation: async (invitationId, action) => {
+    try {
+      const api = await getApiInstance();
+      const response = await api.post(
+        `/api/campaigns/invitations/${invitationId}/respond`,
+        {
+          action, // 'accept' or 'decline'
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error responding to invitation:', error);
+      throw error;
+    }
+  },
+
+  // Send invitation via socket
+  inviteMemberViaSocket: async (campaignId, email, campaignName) => {
+    try {
+      // Get current user info
+      const user = await getCurrentUser(); // Implement this function to get current user
+
+      // Get socket instance
+      const socket = getSocket(); // Implement this function to get the socket instance
+
+      if (!socket || !socket.connected) {
+        throw new Error('Socket connection not available');
+      }
+
+      return new Promise((resolve, reject) => {
+        // Emit invitation event
+        socket.emit('send-invitation', {
+          toUserEmail: email,
+          campaignId: campaignId,
+          campaignName: campaignName,
+          fromUserId: user.id,
+          fromUserName: user.name,
+        });
+
+        // Handle success response
+        socket.once('invitation-sent', (data) => {
+          resolve(data);
+        });
+
+        // Handle error response
+        socket.once('invitation-error', (error) => {
+          reject(new Error(error.message));
+        });
+
+        // Set timeout for response
+        setTimeout(() => {
+          reject(new Error('Invitation request timed out'));
+        }, 10000);
+      });
+    } catch (error) {
+      console.error('Error sending invitation via socket:', error);
+      throw error;
+    }
+  },
 };

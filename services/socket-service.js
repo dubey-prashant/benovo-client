@@ -59,29 +59,14 @@ export const SocketService = {
     socket.emit('leave-campaign', campaignId);
   },
 
-  sendCampaignMessage: (campaignId, message) => {
-    if (!socket || !socket.connected) {
-      console.error('Socket not connected, cannot send message');
-      return false;
-    }
-
-    // Ensure campaignId matches the expected format
-    socket.emit('campaign-message', {
-      campaignId,
-      message: typeof message === 'string' ? message : message.text || message,
-    });
-
-    return true;
-  },
-
   subscribeToCampaignMessages: (callback) => {
     if (!socket) return () => {};
 
-    socket.on('campaign-message', callback);
+    socket.on('newMessage', callback);
 
     // Return a function to unsubscribe
     return () => {
-      socket.off('campaign-message', callback);
+      socket.off('newMessage', callback);
     };
   },
 };
