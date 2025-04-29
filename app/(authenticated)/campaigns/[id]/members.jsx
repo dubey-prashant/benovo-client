@@ -139,7 +139,7 @@ export default function CampaignMembers() {
   const renderMemberItem = ({ item }) => (
     <Box className='p-4 border-b border-gray-100'>
       <HStack className='justify-between items-center'>
-        <HStack className='items-center space-x-3'>
+        <HStack className='items-center gap-3'>
           <Box className='w-10 h-10 rounded-full bg-blue-100 items-center justify-center'>
             <Text className='text-blue-600 font-bold'>
               {item.user?.name?.charAt(0).toUpperCase() || 'U'}
@@ -155,13 +155,24 @@ export default function CampaignMembers() {
           </VStack>
         </HStack>
 
-        {item.is_admin && (
-          <Badge className='bg-blue-50 border border-blue-100'>
-            <BadgeText className='text-blue-600 text-xs font-medium'>
-              Admin
-            </BadgeText>
-          </Badge>
-        )}
+        <HStack space='2' alignItems='center'>
+          {item.is_admin && (
+            <Badge className='bg-blue-50 border border-blue-100'>
+              <BadgeText className='text-blue-600 text-xs font-medium'>
+                Admin
+              </BadgeText>
+            </Badge>
+          )}
+
+          {isAdmin() && !item.is_admin && user.id !== item.user_id && (
+            <Pressable
+              onPress={() => handleRemoveMember(item._id, item.user?.name)}
+              className='p-2'
+            >
+              <Icon as={Feather} name='trash-2' size='sm' color='#EF4444' />
+            </Pressable>
+          )}
+        </HStack>
       </HStack>
     </Box>
   );
@@ -169,12 +180,12 @@ export default function CampaignMembers() {
   const renderPendingInvitation = ({ item }) => (
     <Box className='p-4 border-b border-gray-100'>
       <HStack className='justify-between items-center'>
-        <HStack className='items-center space-x-3'>
+        <HStack className='items-center gap-3'>
           <Box className='w-10 h-10 rounded-full bg-yellow-100 items-center justify-center'>
             <Icon as={Feather} name='mail' size='md' color='#D97706' />
           </Box>
           <VStack>
-            <HStack className='items-center space-x-2'>
+            <HStack className='items-center gap-2'>
               <Text className='font-medium text-gray-800'>{item.email}</Text>
               <Badge className='bg-yellow-50 border border-yellow-100'>
                 <BadgeText className='text-yellow-700 text-xs'>
@@ -211,6 +222,40 @@ export default function CampaignMembers() {
     }
   };
 
+  const handleRemoveMember = async (memberId, memberName) => {
+    // Show confirmation dialog
+    Alert.alert(
+      'Remove Member',
+      `Are you sure you want to remove ${
+        memberName || 'this member'
+      } from the campaign?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              await CampaignService.removeMember(campaignId, memberId);
+              setSuccessMsg(`Member removed successfully`);
+              // Refresh campaign data
+              await fetchCampaign();
+            } catch (error) {
+              console.error('Error removing member:', error);
+              Alert.alert('Error', 'Failed to remove member');
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   if (loading) {
     return (
       <Box className='flex-1 justify-center items-center'>
@@ -235,7 +280,7 @@ export default function CampaignMembers() {
           Campaign Members
         </Heading>
         <HStack className='justify-between items-center mt-2'>
-          <HStack className='items-center space-x-2'>
+          <HStack className='items-center gap-2'>
             <Text className='text-gray-600 font-medium'>Members</Text>
             <Badge className='bg-blue-50'>
               <BadgeText className='text-blue-700'>
@@ -250,7 +295,7 @@ export default function CampaignMembers() {
               className='bg-blue-600'
               size='sm'
             >
-              <HStack className='items-center space-x-1'>
+              <HStack className='items-center gap-1'>
                 <Icon as={Feather} name='user-plus' size='xs' color='white' />
                 <ButtonText>Invite</ButtonText>
               </HStack>
@@ -268,7 +313,7 @@ export default function CampaignMembers() {
           </Pressable>
         </Box>
       ) : null}
-
+      {console.log(pendingInvitations)}
       {/* Members List */}
       <FlatList
         data={campaign?.members || []}
@@ -347,7 +392,7 @@ export default function CampaignMembers() {
             </FormControl>
           </ModalBody>
           <ModalFooter>
-            <HStack className='space-x-2'>
+            <HStack className='gap-2'>
               <Button
                 variant='outline'
                 action='secondary'
@@ -361,9 +406,7 @@ export default function CampaignMembers() {
                 disabled={inviting}
                 className='flex-1 bg-blue-600'
               >
-                <ButtonText>
-                  {inviting ? 'Sending...' : 'Send Invitation'}
-                </ButtonText>
+                <ButtonText>{inviting ? 'Sending...' : 'Invite'}</ButtonText>
               </Button>
             </HStack>
           </ModalFooter>

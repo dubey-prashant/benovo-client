@@ -259,4 +259,29 @@ export const CampaignService = {
       throw error;
     }
   },
+  updateMemberAllocation: async (campaignId, memberId, allocatedMonth) => {
+    try {
+      const api = await getApiInstance();
+      const response = await api.put(
+        `/api/campaigns/${campaignId}/members/${memberId}/allocation`,
+        { allocated_month: allocatedMonth }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error updating member allocation:', error);
+      throw error;
+    }
+  },
+  removeMember: async (campaignId, memberId) => {
+    try {
+      const api = await getApiInstance();
+      const response = await api.delete(
+        `/api/campaigns/${campaignId}/members/${memberId}`
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error removing member:', error);
+      throw error;
+    }
+  },
 };

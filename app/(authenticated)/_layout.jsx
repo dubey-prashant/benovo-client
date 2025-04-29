@@ -7,7 +7,6 @@ export default function AuthenticatedLayout() {
 
   const tabBarVisible = !pathname.startsWith('/campaigns/');
 
-  console.log('Tab bar visible:', tabBarVisible, pathname);
   const tabBarStyle = tabBarVisible
     ? {
         elevation: 8,
