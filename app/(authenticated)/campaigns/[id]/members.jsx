@@ -25,10 +25,18 @@ import {
   ModalFooter,
   AlertIcon,
   CloseIcon,
+  Select,
+  SelectTrigger,
+  SelectInput,
+  SelectPortal,
+  SelectContent,
+  SelectIcon,
+  SelectItem,
+  ChevronDownIcon,
 } from '@gluestack-ui/themed';
-import { useLocalSearchParams, usePathname } from 'expo-router';
-import { CampaignService } from '@/services/campaign-service';
 import { Feather } from '@expo/vector-icons';
+import { useLocalSearchParams, usePathname } from 'expo-router';
+import { CampaignService } from '../../../../services/campaign-service';
 import { useAuth } from '../../../../context/AuthContext';
 
 export default function CampaignMembers() {
@@ -46,6 +54,12 @@ export default function CampaignMembers() {
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const { user } = useAuth();
+
+  // Add these with your other state variables
+  const [showAllocationModal, setShowAllocationModal] = useState(false);
+  const [selectedMember, setSelectedMember] = useState(null);
+  const [selectedMonth, setSelectedMonth] = useState(new Date());
+  const [updatingAllocation, setUpdatingAllocation] = useState(false);
 
   useEffect(() => {
     fetchCampaign();
@@ -156,12 +170,32 @@ export default function CampaignMembers() {
         </HStack>
 
         <HStack space='2' alignItems='center'>
+          {item.allocated_month && (
+            <Badge className='bg-green-50 border border-green-100'>
+              <BadgeText className='text-green-700 text-xs'>
+                {new Date(item.allocated_month).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'short',
+                })}
+              </BadgeText>
+            </Badge>
+          )}
+
           {item.is_admin && (
             <Badge className='bg-blue-50 border border-blue-100'>
               <BadgeText className='text-blue-600 text-xs font-medium'>
                 Admin
               </BadgeText>
             </Badge>
+          )}
+
+          {isAdmin() && (
+            <Pressable
+              onPress={() => handleEditMember(item)}
+              className={`p-2  `}
+            >
+              <Icon as={Feather} name='calendar' size='sm' color='#4B5563' />
+            </Pressable>
           )}
 
           {isAdmin() && !item.is_admin && user.id !== item.user_id && (
@@ -201,7 +235,7 @@ export default function CampaignMembers() {
 
         {isAdmin() && (
           <Pressable
-            onPress={() => handleCancelInvitation(item.id)}
+            onPress={() => handleCancelInvitation(item._id)}
             className='p-2'
           >
             <Icon as={Feather} name='x' size='sm' color='#6B7280' />
@@ -254,6 +288,111 @@ export default function CampaignMembers() {
         },
       ]
     );
+  };
+
+  const handleEditMember = (member) => {
+    setSelectedMember(member);
+    if (member.allocated_month) {
+      setSelectedMonth(new Date(member.allocated_month));
+    } else {
+      // Set to campaign start date + some months based on position
+      const startDate = new Date(campaign.start_date);
+      const index = campaign.members.findIndex((m) => m._id === member._id);
+      if (index >= 0) {
+        const date = new Date(startDate);
+        date.setMonth(date.getMonth() + index);
+        setSelectedMonth(date);
+      } else {
+        setSelectedMonth(startDate);
+      }
+    }
+    setShowAllocationModal(true);
+  };
+
+  const handleUpdateAllocation = async () => {
+    if (!selectedMember || !selectedMonth) return;
+
+    setUpdatingAllocation(true);
+    setErrorMsg('');
+
+    try {
+      // Check if the month is already allocated
+      const conflictingMember = campaign.members.find(
+        (member) =>
+          member._id !== selectedMember._id &&
+          member.allocated_month &&
+          new Date(member.allocated_month).getMonth() ===
+            selectedMonth.getMonth() &&
+          new Date(member.allocated_month).getFullYear() ===
+            selectedMonth.getFullYear()
+      );
+
+      if (conflictingMember) {
+        setErrorMsg(
+          `This month is already allocated to ${
+            conflictingMember.user?.name || 'another member'
+          }`
+        );
+        setUpdatingAllocation(false);
+        return;
+      }
+
+      await CampaignService.updateMemberAllocation(
+        campaignId,
+        selectedMember._id,
+        selectedMonth.toISOString()
+      );
+
+      setSuccessMsg('Month allocation updated successfully');
+      setShowAllocationModal(false);
+      await fetchCampaign();
+    } catch (error) {
+      console.error('Error updating allocation:', error);
+      setErrorMsg('Failed to update month allocation');
+    } finally {
+      setUpdatingAllocation(false);
+    }
+  };
+
+  // Add this helper function to generate month options
+  const generateMonthOptions = () => {
+    if (!campaign) return [];
+
+    const startDate = new Date(campaign.start_date);
+    const endDate = new Date(campaign.end_date);
+    const options = [];
+
+    // Create a date object for the first day of each month in the campaign period
+    const currentDate = new Date(
+      startDate.getFullYear(),
+      startDate.getMonth(),
+      1
+    );
+
+    while (currentDate <= endDate) {
+      options.push({
+        value: currentDate.toISOString(),
+        label: currentDate.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+        }),
+        date: new Date(currentDate), // Clone the date
+      });
+
+      // Move to next month
+      currentDate.setMonth(currentDate.getMonth() + 1);
+    }
+
+    return options;
+  };
+
+  // Get month options
+  const monthOptions = generateMonthOptions();
+
+  // Handle month selection change
+  const handleMonthChange = (value) => {
+    const selectedDate = new Date(value);
+    setSelectedMonth(selectedDate);
   };
 
   if (loading) {
@@ -316,11 +455,22 @@ export default function CampaignMembers() {
       {console.log(pendingInvitations)}
       {/* Members List */}
       <FlatList
-        data={campaign?.members || []}
-        renderItem={renderMemberItem}
-        keyExtractor={(item) =>
-          item.user_id || item.id || Math.random().toString()
+        data={
+          campaign?.members.sort((a, b) => {
+            // Sort by allocated month (null values at the end)
+            if (a.allocated_month && !b.allocated_month) return -1;
+            if (!a.allocated_month && b.allocated_month) return 1;
+            if (a.allocated_month && b.allocated_month) {
+              return new Date(a.allocated_month) - new Date(b.allocated_month);
+            }
+            // If no allocated months, keep admin users first
+            if (a.is_admin && !b.is_admin) return -1;
+            if (!a.is_admin && b.is_admin) return 1;
+            return 0;
+          }) || []
         }
+        renderItem={renderMemberItem}
+        keyExtractor={(item) => item._id || item.id || Math.random().toString()}
         ListHeaderComponent={() => (
           <Box className='pt-4 px-4 pb-2'>
             <Text className='text-sm font-semibold text-gray-500 uppercase'>
@@ -407,6 +557,116 @@ export default function CampaignMembers() {
                 className='flex-1 bg-blue-600'
               >
                 <ButtonText>{inviting ? 'Sending...' : 'Invite'}</ButtonText>
+              </Button>
+            </HStack>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Allocation Modal */}
+      <Modal
+        isOpen={showAllocationModal}
+        onClose={() => setShowAllocationModal(false)}
+      >
+        <ModalBackdrop />
+        <ModalContent className='mx-4 bg-white rounded-xl'>
+          <ModalHeader>
+            <Heading size='md'>Allocate Payment Month</Heading>
+          </ModalHeader>
+          <ModalBody>
+            <Text className='text-gray-600 mb-4'>
+              Select the month when{' '}
+              {selectedMember?.user?.name || 'this member'} will receive their
+              payout.
+            </Text>
+
+            {errorMsg ? (
+              <Box className='mb-4 p-3 bg-red-50 border border-red-100 rounded-md flex-row items-center'>
+                <AlertIcon className='text-red-500 mr-2' />
+                <Text className='text-red-700 flex-1'>{errorMsg}</Text>
+              </Box>
+            ) : null}
+
+            <Box className='mb-4'>
+              <Text className='text-gray-700 font-medium mb-2'>Member:</Text>
+              <Text className='text-gray-900'>
+                {selectedMember?.user?.name || 'Unknown Member'}
+              </Text>
+            </Box>
+
+            <FormControl className='mb-4'>
+              <Text className='text-gray-700 font-medium mb-2'>
+                Payment Month:
+              </Text>
+              <Select
+                selectedValue={selectedMonth.toISOString()}
+                onValueChange={handleMonthChange}
+              >
+                <SelectTrigger className='bg-gray-50 border border-gray-200 rounded-md p-3'>
+                  <SelectInput
+                    placeholder='Select month'
+                    className='text-gray-800'
+                  />
+                  <SelectIcon mr='$2'>
+                    <Icon as={ChevronDownIcon} />
+                  </SelectIcon>
+                </SelectTrigger>
+
+                <SelectPortal>
+                  <SelectContent>
+                    {monthOptions.map((option) => (
+                      <SelectItem
+                        key={option.value}
+                        label={option.label}
+                        value={option.value}
+                      />
+                    ))}
+                  </SelectContent>
+                </SelectPortal>
+              </Select>
+
+              {/* Show allocated to badge if this month is allocated to someone else */}
+              {monthOptions.length > 0 &&
+              campaign?.members.some(
+                (member) =>
+                  member._id !== selectedMember?._id &&
+                  member.allocated_month &&
+                  new Date(member.allocated_month).getMonth() ===
+                    selectedMonth.getMonth() &&
+                  new Date(member.allocated_month).getFullYear() ===
+                    selectedMonth.getFullYear()
+              ) ? (
+                <HStack className='mt-2 items-center'>
+                  <Badge className='bg-yellow-50 border border-yellow-100'>
+                    <BadgeText className='text-yellow-700 text-xs'>
+                      Already allocated
+                    </BadgeText>
+                  </Badge>
+                  <Text className='text-yellow-700 text-xs ml-2'>
+                    This month is already allocated to another member
+                  </Text>
+                </HStack>
+              ) : null}
+            </FormControl>
+          </ModalBody>
+          <ModalFooter>
+            <HStack className='gap-2'>
+              <Button
+                variant='outline'
+                action='secondary'
+                onPress={() => setShowAllocationModal(false)}
+                className='flex-1'
+              >
+                <ButtonText>Cancel</ButtonText>
+              </Button>
+              <Button
+                onPress={handleUpdateAllocation}
+                disabled={updatingAllocation}
+                className='flex-1 bg-blue-600'
+              >
+                <ButtonText>
+                  {updatingAllocation ? 'Updating...' : 'Save'}
+                </ButtonText>
               </Button>
             </HStack>
           </ModalFooter>

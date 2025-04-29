@@ -82,6 +82,15 @@ export default function CampaignTabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name='payments'
+        options={{
+          title: 'Payments',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name='wallet-outline' size={size || 22} color={color} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }

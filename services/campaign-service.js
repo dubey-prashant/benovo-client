@@ -123,6 +123,19 @@ export const CampaignService = {
     }
   },
 
+  getCampaignContributions: async (campaignId) => {
+    try {
+      const api = await getApiInstance();
+      const response = await api.get(
+        `/api/campaigns/${campaignId}/contributions`
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching campaign contributions:', error);
+      throw error;
+    }
+  },
+
   // Disbursement management
   recordDisbursement: async (campaignId, disbursement) => {
     try {
@@ -175,6 +188,7 @@ export const CampaignService = {
 
   // Cancel an invitation
   cancelInvitation: async (campaignId, invitationId) => {
+    console.log('Canceling invitation:', campaignId, invitationId);
     try {
       const api = await getApiInstance();
       await api.delete(
@@ -259,12 +273,22 @@ export const CampaignService = {
       throw error;
     }
   },
-  updateMemberAllocation: async (campaignId, memberId, allocatedMonth) => {
+
+  updateMemberAllocation: async (
+    campaignId,
+    memberId,
+    allocatedMonth,
+    hasPaid
+  ) => {
     try {
       const api = await getApiInstance();
+      const data = {};
+      if (allocatedMonth) data.allocated_month = allocatedMonth;
+      if (hasPaid !== undefined) data.has_received_payout = hasPaid;
+
       const response = await api.put(
         `/api/campaigns/${campaignId}/members/${memberId}/allocation`,
-        { allocated_month: allocatedMonth }
+        data
       );
       return response.data;
     } catch (error) {

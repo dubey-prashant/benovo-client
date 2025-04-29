@@ -329,6 +329,7 @@ export default function CampaignDetails() {
                   key={member.id || index}
                   className='flex-row justify-between items-center py-3'
                 >
+                  {console.log(member)}
                   <Box className='flex-row items-center'>
                     <Box className='w-8 h-8 rounded-full bg-blue-100 items-center justify-center mr-3'>
                       <Text className='text-blue-600 font-semibold'>
@@ -336,7 +337,7 @@ export default function CampaignDetails() {
                       </Text>
                     </Box>
                     <Text className='text-slate-700 font-medium'>
-                      {member.user.name || `Member ${index + 1}`}
+                      {member.user?.name || `Member ${index + 1}`}
                     </Text>
                   </Box>
                   {member.is_admin && (
